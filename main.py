@@ -12,6 +12,8 @@ FPS = 60
 sc = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 lvl = 'menu'
+lvl_game = 1
+font = pygame.font.SysFont('Calibri', 30)
 
 from load import *
 
@@ -32,6 +34,8 @@ def lvlGame():
     flag_group.draw(sc)
     bullet_player_group.update()
     bullet_player_group.draw(sc)
+    bullet_enemy_group.update()
+    bullet_enemy_group.draw(sc)
     bush_group.update()
     bush_group.draw(sc)
     pygame.display.update()
@@ -71,7 +75,26 @@ def drawMaps(nameFile):
 
 def startMenu():
     sc.fill('grey')
+    button_group.draw(sc)
+    button_group.update()
     pygame.display.update()
+
+
+def restart():
+    global water_group, brick_group, bush_group, iron_group, button_group
+    global player_group, enemy_group, flag_group, bullet_player_group, bullet_enemy_group, player
+    brick_group = pygame.sprite.Group()
+    bush_group = pygame.sprite.Group()
+    iron_group = pygame.sprite.Group()
+    water_group = pygame.sprite.Group()
+    player_group = pygame.sprite.Group()
+    enemy_group = pygame.sprite.Group()
+    flag_group = pygame.sprite.Group()
+    bullet_player_group = pygame.sprite.Group()
+    bullet_enemy_group = pygame.sprite.Group()
+    player = Player(player_image[0], (200, 640))
+    player_group.add(player)
+    button_group = pygame.sprite.Group()
 
 
 class Button(pygame.sprite.Sprite):
@@ -82,6 +105,18 @@ class Button(pygame.sprite.Sprite):
         self.rect.topleft = pos
         self.next_lvl = next_lvl
         self.text = text
+
+    def update(self):
+        global lvl
+        text_render = font.render(self.text, True, "white")
+        sc.blit(text_render, (self.rect.x + 80, self.rect.y + 5))
+        click = pygame.mouse.get_pos()
+        if pygame.mouse.get_pressed()[0]:
+            if self.rect.left < click[0] < self.rect.right and self.rect.top < click[1] < self.rect.bottom:
+                lvl = self.next_lvl
+                if lvl == "game":
+                    restart()
+                    drawMaps('1.txt')
 
 
 class Player(pygame.sprite.Sprite):
@@ -154,6 +189,7 @@ class Bullet_player(pygame.sprite.Sprite):
         self.frame = 0
 
     def update(self):
+        global lvl
         if self.dir == 'top':
             self.rect.y -= self.speed
         elif self.dir == 'bottom':
@@ -179,6 +215,7 @@ class Bullet_player(pygame.sprite.Sprite):
             if self.boom:
                 boom_sound.play()
                 self.boom = False
+                lvl = "menu"
 
 
 class Bullet_enemy(pygame.sprite.Sprite):
@@ -209,6 +246,7 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1]
+        self.timer_shot = 0
         self.speed = 1
         self.dir = 'top'
         self.timer_move = 0
@@ -218,6 +256,8 @@ class Enemy(pygame.sprite.Sprite):
 
     def update(self):
         self.timer_move += 1
+        self.timer_shot += 1
+
         if self.timer_move / FPS > 2:
             if random.randint(1, 4) == 1:
                 self.dir = 'top'
@@ -267,6 +307,11 @@ class Enemy(pygame.sprite.Sprite):
                 else:
                     self.frame += 1
                     self.timer_anime = 0
+        if self.timer_shot / FPS > 1:
+            shot_sound.play()
+            bullet = Bullet_enemy(enemy_bullet, self.rect.center, self.dir)
+            bullet_enemy_group.add(bullet)
+            self.timer_shot = 0
 
 
 class Brick(pygame.sprite.Sprite):
@@ -288,6 +333,7 @@ class Brick(pygame.sprite.Sprite):
             if player.dir == "top":
                 player.rect.top = self.rect.bottom
         pygame.sprite.groupcollide(bullet_player_group, brick_group, True, True)
+        pygame.sprite.groupcollide(bullet_enemy_group, brick_group, True, True)
 
 
 class Bush(pygame.sprite.Sprite):
@@ -318,6 +364,9 @@ class Iron(pygame.sprite.Sprite):
             if player.dir == "top":
                 player.rect.top = self.rect.bottom
         pygame.sprite.groupcollide(bullet_player_group, iron_group, True, False)
+        pygame.sprite.groupcollide(bullet_enemy_group, iron_group, True, False)
+
+
 
 
 class Water(pygame.sprite.Sprite):
@@ -359,20 +408,15 @@ class Flag(pygame.sprite.Sprite):
             if player.dir == "top":
                 player.rect.top = self.rect.bottom
         pygame.sprite.groupcollide(bullet_player_group, flag_group, True, True)
+        pygame.sprite.groupcollide(bullet_enemy_group, flag_group, True, True)
 
 
-brick_group = pygame.sprite.Group()
-bush_group = pygame.sprite.Group()
-iron_group = pygame.sprite.Group()
-water_group = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
-enemy_group = pygame.sprite.Group()
-flag_group = pygame.sprite.Group()
-bullet_player_group = pygame.sprite.Group()
-player = Player(player_image[0], (200, 640))
-player_group.add(player)
+button_group = pygame.sprite.Group()
+button_start = Button(button_image, (500, 100), "game", "start")
+button_group.add(button_start)
 
-drawMaps('1.txt')
+button_exit = Button(button_image, (500, 180), "end", "exit")
+button_group.add(button_exit)
 
 while True:
     for event in pygame.event.get():
@@ -383,4 +427,7 @@ while True:
         lvlGame()
     elif lvl == 'menu':
         startMenu()
+    elif lvl == 'end':
+        pygame.quit()
+        sys.exit()
     clock.tick(FPS)
